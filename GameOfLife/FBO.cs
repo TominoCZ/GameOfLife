@@ -8,7 +8,7 @@ namespace GameOfLife
 		public int TextureId;
 
 		private int _frameBuffer;
-		private int _depthBuffer;
+		//private int _depthBuffer;
 
 		private int _width, _height;
 

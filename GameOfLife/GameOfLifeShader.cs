@@ -8,8 +8,9 @@ namespace GameOfLife
 {
     class GameOfLifeShader : Shader
     {
-        public GameOfLifeShader() : base("cells", "bufferSize")//, "deltaTime", "fadeSpeed")
+        public GameOfLifeShader() : base("cells", "bufferSize", "deltaTime", "fadeSpeed")
 		{
+
         }
     }
 }

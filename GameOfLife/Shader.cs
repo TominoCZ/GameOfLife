@@ -212,8 +212,8 @@ namespace GameOfLife
         private void LoadShader(string shaderName)
         {
             //vertex and fragment shader code
-            string vshCode = File.ReadAllText($"assets/shaders/{shaderName}.vsh");
-            string fshCode = File.ReadAllText($"assets/shaders/{shaderName}.fsh");
+            string vshCode = File.ReadAllText($"shaders/{shaderName}.vsh");
+            string fshCode = File.ReadAllText($"shaders/{shaderName}.fsh");
 
             //create IDs for shaders
             _vsh = GL.CreateShader(ShaderType.VertexShader);
