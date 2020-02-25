@@ -8,7 +8,7 @@ namespace GameOfLife
 {
     class ReadShader : Shader
     {
-        public ReadShader() : base("cells_read", "image")
+        public ReadShader() : base("cells_read", "gen", "image")
         {
         }
     }

@@ -5,7 +5,7 @@ namespace GameOfLife
 {
 	public class FBO
 	{
-		private int _textureId;
+		public int TextureId;
 
 		private int _frameBuffer;
 		private int _depthBuffer;
@@ -35,7 +35,7 @@ namespace GameOfLife
 			//CreateDepthBuffer();
 
 			// Set "renderedTexture" as our colour attachement #0
-			GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, _textureId, 0);
+			GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureId, 0);
 
 
 			GL.DrawBuffer(DrawBufferMode.ColorAttachment0);
@@ -65,9 +65,9 @@ namespace GameOfLife
 		{
 			CreateRenderBuffer();
 
-			_textureId = GL.GenTexture();
+			TextureId = GL.GenTexture();
 
-			GL.BindTexture(TextureTarget.Texture2D, _textureId);
+			GL.BindTexture(TextureTarget.Texture2D, TextureId);
 
 			GL.TexImage2D(
 				TextureTarget.Texture2D,
@@ -144,7 +144,7 @@ namespace GameOfLife
 
 		public void BindTexture()
 		{
-			GL.BindTexture(TextureTarget.Texture2D, _textureId);
+			GL.BindTexture(TextureTarget.Texture2D, TextureId);
 		}
 
 		public void Bind()
@@ -154,7 +154,7 @@ namespace GameOfLife
 			GL.Viewport(0, 0, _width, _height);
 		}
 
-		public void BindDefault()
+		public static void BindDefault()
 		{
 			GL.BindTexture(TextureTarget.Texture2D, 0);
 
@@ -171,7 +171,7 @@ namespace GameOfLife
 			}
 
 			GL.DeleteFramebuffer(_frameBuffer);
-			GL.DeleteTexture(_textureId);
+			GL.DeleteTexture(TextureId);
 		}
 	}
 }

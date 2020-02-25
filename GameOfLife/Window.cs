@@ -50,6 +50,7 @@ namespace GameOfLife
 		Matrix4 _projMat;
 		DateTime _lastFps = DateTime.Now;
 		DateTime _lastSpawn = DateTime.MinValue;
+		DateTime _start = DateTime.Now;
 
 		int _fadeTicks = 120;
 		int _frames = 0;
@@ -57,12 +58,10 @@ namespace GameOfLife
 		int _quadVAO;
 		int _textureId;
 
-		int _cellsX = 160 * 2;
-		int _cellsY = 90 * 2;
+		int _cellsX = 160;
+		int _cellsY = 90;
 
 		Point _cursorLast = new Point();
-
-		Color[,] _image;
 
 		FBO _frontBuffer;
 		FBO _backBuffer;
@@ -73,7 +72,7 @@ namespace GameOfLife
 
 		static void Main()
 		{
-			//MessageBox.Show("");
+			//essageBox.Show("");
 
 			using (var w = new Window())
 			{
@@ -99,14 +98,14 @@ namespace GameOfLife
 			_shaderWrite = new WriteShader();
 			_shaderRead = new ReadShader();
 
-			_quadVAO = ModelManager.LoadModel2ToVao(new[] { 0f, 0, 0, 1, 1, 1, 1, 0 }, new[] { 0f, 1, 0, 0, 1, 0, 1, 1 });
+			_quadVAO = ModelManager.LoadModel2ToVao(new[] { 0f, 0, 0, 1, 1, 1, 1, 0 }, new[] { 0f, 0, 0, 1, 1, 1, 1, 0 });//new[] { 0f, 1, 0, 0, 1, 0, 1, 1 });
 		}
 
 		protected override void OnLoad(EventArgs e)
 		{
 			GL.Enable(EnableCap.Texture2D);
-			GL.Enable(EnableCap.Blend);
-			GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+			GL.Disable(EnableCap.Blend);
+			//GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
 			try
 			{
@@ -139,82 +138,43 @@ namespace GameOfLife
 			if (_backBuffer == null)
 				return;
 
+			//draw stuff beforehand
 			_backBuffer.Bind();
-
 			_shaderWrite.Bind();
-			HandleLine();
-
-			if ((DateTime.Now - _lastSpawn).TotalSeconds >= 0.25)
-			{
-				_lastSpawn = DateTime.Now;
-
-				var r = new Random();
-
-				for (int i = 0; i < 35; i++)
-				{
-					int sx = r.Next(Width);
-					int sy = r.Next(Height);
-
-					for (int y = -10; y < 11; y++)
-					{
-						for (int x = -10; x < 11; x++)
-						{
-							FillNode(sx + x, sy + y);
-						}
-					}
-				}
-			}
-
+			SpawnCells();
+			CursorDraw();
 			_shaderWrite.Unbind();
+			FBO.BindDefault();
 
+			//bind front buffer, use back buffer as last gen
 			_frontBuffer.Bind();
-			GL.Clear(ClearBufferMask.ColorBufferBit);
 			_backBuffer.BindTexture();
+			GL.Clear(ClearBufferMask.ColorBufferBit);
 
-			_shaderGoL.Bind();
-			_shaderGoL.SetMatrix4("transformationMatrix", Matrix4.CreateScale(_cellsX, _cellsY, 0));
-			_shaderGoL.SetVector2("bufferSize", new Vector2(_cellsX, _cellsY));
-			_shaderGoL.SetVector2("deltaTime", (float)e.Time * Vector2.UnitX);
+			DrawGoL((float)e.Time);
 
-			DrawQuad();
+			//maybe it doesn't do it right here?
+			//_frontBuffer.CopyTo(_backBuffer, ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Nearest);
+			FBO.BindDefault();
 
-			_shaderGoL.Unbind();
+			DrawResult();
 
-			_frontBuffer.CopyTo(_backBuffer, ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Nearest);
-			_frontBuffer.BindDefault();
-			GL.ActiveTexture(TextureUnit.Texture0);
-			_frontBuffer.BindTexture();
-			GL.ActiveTexture(TextureUnit.Texture1);
-			GL.BindTexture(TextureTarget.Texture2D, _textureId);
-			_shaderRead.SetSampler2D("image", TextureUnit.Texture1, _textureId);
+			var b = _backBuffer;
+			_backBuffer = _frontBuffer;
+			_frontBuffer = b;
 
-			_shaderRead.Bind();
-			_shaderRead.SetMatrix4("transformationMatrix", Matrix4.CreateScale(_cellsX, _cellsY, 0));
-
-			DrawQuad();
-
-			_shaderRead.SetSampler2D("image", TextureUnit.Texture0, 0);
-			_shaderRead.Unbind();
-
-			GL.ActiveTexture(TextureUnit.Texture0);
-
-			/*
-			
-
-			//new generation and render
-			_frontBuffer.Bind();
-			_shaderGoL.Bind();
-			_shaderGoL.SetMatrix4("transformationMatrix", Matrix4.CreateScale(_cellsX, _cellsY, 0));
-			_shaderGoL.SetVector2("bufferSize", new Vector2(Width, Height));
-			DrawQuad();
-			_shaderGoL.Unbind();
-			_frontBuffer.BindDefault();
-
-			_frontBuffer.CopyTo(_backBuffer, ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Nearest);
-			
-			_frontBuffer.CopyToScreen(ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Nearest);
-			*/
 			SwapBuffers();
+		}
+
+		protected override void OnResize(EventArgs e)
+		{
+			GL.Viewport(ClientRectangle);
+
+			//_frontBuffer?.SetSize(Width, Height);
+			//_backBuffer?.SetSize(Width, Height);
+
+			_projMat = Matrix4.CreateOrthographicOffCenter(0, _cellsX, _cellsY, 0, 0, 1);
+			Shader.SetProjectionMatrix(_projMat);
 		}
 
 		private void LoadTexture(Bitmap bmp)
@@ -233,7 +193,7 @@ namespace GameOfLife
 				bmp.Width,
 				bmp.Height,
 				0,
-				PixelFormat.Rgba,
+				PixelFormat.Bgra,
 				PixelType.UnsignedByte, bd.Scan0);
 
 			GL.TexParameter(
@@ -247,7 +207,62 @@ namespace GameOfLife
 			bmp.UnlockBits(bd);
 		}
 
-		private void HandleLine()
+		private void DrawResult()
+		{
+			_shaderRead.Bind();
+			_shaderRead.SetMatrix4("transformationMatrix", Matrix4.CreateScale(_cellsX, _cellsY, 0));
+			
+			_shaderRead.SetSampler2D("gen", 0);
+			GL.ActiveTexture(TextureUnit.Texture0);
+			_frontBuffer.BindTexture();
+
+			_shaderRead.SetSampler2D("image", 1);
+			GL.ActiveTexture(TextureUnit.Texture1);
+			GL.BindTexture(TextureTarget.Texture2D, _backBuffer.TextureId);
+
+			DrawQuad();
+			
+			_shaderRead.Unbind();
+
+			GL.ActiveTexture(TextureUnit.Texture0);
+		}
+
+		private void DrawGoL(float step)
+		{
+			_shaderGoL.Bind();
+			_shaderGoL.SetMatrix4("transformationMatrix", Matrix4.CreateScale(_cellsX, _cellsY, 0));
+			_shaderGoL.SetVector2("bufferSize", (float)_cellsX, _cellsY);
+			//_shaderGoL.SetFloat("deltaTime", step);
+			//_shaderGoL.SetFloat("fadeSpeed", 60f / _fadeTicks);
+
+			DrawQuad();
+
+			_shaderGoL.Unbind();
+		}
+
+		private void SpawnCells()
+		{
+			if ((DateTime.Now - _start).TotalSeconds < 12)
+			{
+				if ((DateTime.Now - _lastSpawn).TotalSeconds >= 3)
+				{
+					_lastSpawn = DateTime.Now;
+
+					var r = new Random();
+
+					for (int y = 0; y < _cellsY; y++)
+					{
+						for (int x = 0; x < _cellsX; x++)
+						{
+							if (r.Next(2) == 1)
+								FillNode(x, y);
+						}
+					}
+				}
+			}
+		}
+
+		private void CursorDraw()
 		{
 			//RENDER MOUSE
 			GetCursorPos(out POINT p);
@@ -266,54 +281,7 @@ namespace GameOfLife
 				_cursorLast.Y = y;
 			}
 		}
-
-		protected override void OnResize(EventArgs e)
-		{
-			GL.Viewport(ClientRectangle);
-
-			//_frontBuffer?.SetSize(Width, Height);
-			//_backBuffer?.SetSize(Width, Height);
-
-			_projMat = Matrix4.CreateOrthographicOffCenter(0, _cellsX, _cellsY, 0, 0, 1);
-			Shader.SetProjectionMatrix(_projMat);
-		}
-
-		private void FillNode(float x, float y)
-		{
-			_shaderWrite.SetMatrix4("transformationMatrix", Matrix4.CreateTranslation(x, y, 0));
-
-			DrawQuad();
-		}
-
-		private void DrawQuad()
-		{
-			GL.BindVertexArray(_quadVAO);
-			GL.EnableVertexAttribArray(0);
-			GL.EnableVertexAttribArray(1);
-			GL.DrawArrays(PrimitiveType.Quads, 0, 4);
-			GL.BindVertexArray(0);
-			GL.DisableVertexAttribArray(0);
-			GL.DisableVertexAttribArray(1);
-		}
-
-		private void DrawNode(Node n)
-		{
-			if (n.State == 0 && n.DeadAge >= _fadeTicks)
-				return;
-
-			var a = n.State == 1 ? 1 : _fadeTicks == 0 ? 0 : Math.Max(0, (_fadeTicks - n.DeadAge) / (float)_fadeTicks);
-			a *= a;
-
-			var c = _image?[n.X, n.Y] ?? Hue(n.Angle * 10);
-
-			GL.Color4(c.R, c.G, c.B, (byte)(a * 255));
-
-			GL.Vertex2(n.X, n.Y);
-			GL.Vertex2(n.X, n.Y + 1);
-			GL.Vertex2(n.X + 1, n.Y + 1);
-			GL.Vertex2(n.X + 1, n.Y);
-		}
-
+		
 		private void PopulateLine(int sx, int sy, int ex, int ey)
 		{
 			var dx = ex - sx;
@@ -336,15 +304,22 @@ namespace GameOfLife
 			}
 		}
 
-		private Color Hue(float angle)
+		private void FillNode(float x, float y)
 		{
-			var rad = MathHelper.DegreesToRadians(angle);
+			_shaderWrite.SetMatrix4("transformationMatrix", Matrix4.CreateTranslation(x, y, 0));
 
-			var r = (int)(Math.Sin(rad) * 127.5 + 127.5);
-			var g = (int)(Math.Sin(rad + MathHelper.PiOver3 * 2) * 127.5 + 127.5);
-			var b = (int)(Math.Sin(rad + MathHelper.PiOver3 * 4) * 127.5 + 127.5);
+			DrawQuad();
+		}
 
-			return Color.FromArgb(r, g, b);
+		private void DrawQuad()
+		{
+			GL.BindVertexArray(_quadVAO);
+			GL.EnableVertexAttribArray(0);
+			GL.EnableVertexAttribArray(1);
+			GL.DrawArrays(PrimitiveType.Quads, 0, 4);
+			GL.BindVertexArray(0);
+			GL.DisableVertexAttribArray(0);
+			GL.DisableVertexAttribArray(1);
 		}
 	}
 }

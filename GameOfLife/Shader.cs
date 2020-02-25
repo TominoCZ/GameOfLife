@@ -104,9 +104,9 @@ namespace GameOfLife
                 var loc = GL.GetUniformLocation(_program, uniform);
 
                 if (loc == -1)
-                    continue;
+					throw new NotImplementedException(uniform);
 
-                _uniforms.Add(uniform, loc);
+				_uniforms.Add(uniform, loc);
             }
             Unbind();
         }
@@ -115,48 +115,70 @@ namespace GameOfLife
         {
             var loc = GetUniformLocation(uniform);
 
-            if (loc != -1)
-                GL.Uniform1(loc, f);
-        }
+			if (loc == -1)
+				throw new NotImplementedException(uniform);
 
-        public void SetVector2(string uniform, Vector2 vec)
+			GL.Uniform1(loc, f);
+		}
+
+		public void SetVector2(string uniform, float x, float y)
         {
             var loc = GetUniformLocation(uniform);
 
-            if (loc != -1)
-                GL.Uniform2(loc, vec);
+			if (loc == -1)
+				throw new NotImplementedException(uniform);
+
+            GL.Uniform2(loc, x, y);
         }
 
-        public void SetVector3(string uniform, Vector3 vec)
+		public void SetVector2(string uniform, int x, int y)
+		{
+			var loc = GetUniformLocation(uniform);
+
+			if (loc == -1)
+				throw new NotImplementedException(uniform);
+
+			GL.Uniform2(loc, x, y);
+		}
+
+		public void SetVector3(string uniform, Vector3 vec)
         {
             var loc = GetUniformLocation(uniform);
 
-            if (loc != -1)
-                GL.Uniform3(loc, vec);
+			if (loc == -1)
+				throw new NotImplementedException(uniform);
+
+			GL.Uniform3(loc, vec);
         }
 
         public void SetVector4(string uniform, Vector4 vec)
         {
             var loc = GetUniformLocation(uniform);
 
-            if (loc != -1)
-                GL.Uniform4(loc, vec);
+			if (loc == -1)
+				throw new NotImplementedException(uniform);
+
+			GL.Uniform4(loc, vec);
         }
 
         public void SetMatrix4(string uniform, Matrix4 mat)
         {
             var loc = GetUniformLocation(uniform);
 
-            if (loc != -1)
-                GL.UniformMatrix4(loc, false, ref mat);
+			if (loc == -1)
+				throw new NotImplementedException(uniform);
+
+			GL.UniformMatrix4(loc, false, ref mat);
         }
 
-		public void SetSampler2D(string uniform, TextureUnit unit, int tex)
+		public void SetSampler2D(string uniform, int unit)
 		{
 			var loc = GetUniformLocation(uniform);
 
-			if (loc != -1)
-				GL.BindSampler((int)unit, tex);
+			if (loc == -1)
+				throw new NotImplementedException(uniform);
+
+			GL.Uniform1(loc, unit);
 		}
 
 
@@ -204,7 +226,22 @@ namespace GameOfLife
             //compile shaders
             GL.CompileShader(_vsh);
             GL.CompileShader(_fsh);
-        }
+
+			CheckError(_vsh);
+			CheckError(_fsh);
+		}
+
+		private void CheckError(int id)
+		{
+			GL.GetShader(id, ShaderParameter.CompileStatus, out int r);
+
+			var err = GL.GetShaderInfoLog(id);
+
+			if (r == 0 && !string.IsNullOrEmpty(err))
+			{
+				throw new Exception(err);
+			}
+		}
 
         public void Bind()
         {
