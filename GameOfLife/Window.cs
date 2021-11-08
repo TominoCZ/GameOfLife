@@ -13,6 +13,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using WindowUtils;
@@ -20,11 +21,57 @@ using PixelFormat = OpenTK.Graphics.OpenGL.PixelFormat;
 
 namespace GameOfLife
 {
-	class Window : GameWindow
+	internal class Window : GameWindow
 	{
 		[DllImport("user32.dll", SetLastError = true)]
 		[return: MarshalAs(UnmanagedType.Bool)]
-		static extern bool GetCursorPos(out POINT lpPoint);
+		private static extern bool GetCursorPos(out POINT lpPoint);
+		[DllImport("user32.dll")]
+		private static extern IntPtr GetForegroundWindow();
+		[DllImport("user32.dll")]
+		private static extern bool GetWindowRect(IntPtr hWnd, [In, Out] ref Rect rect);
+
+		private static WINDOWPLACEMENT GetPlacement(IntPtr hwnd)
+		{
+			WINDOWPLACEMENT placement = new WINDOWPLACEMENT();
+			placement.length = Marshal.SizeOf(placement);
+			GetWindowPlacement(hwnd, ref placement);
+			return placement;
+		}
+
+		[DllImport("user32.dll", SetLastError = true)]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		internal static extern bool GetWindowPlacement(
+			IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+
+		[Serializable]
+		[StructLayout(LayoutKind.Sequential)]
+		internal struct WINDOWPLACEMENT
+		{
+			public int length;
+			public int flags;
+			public ShowWindowCommands showCmd;
+			public System.Drawing.Point ptMinPosition;
+			public System.Drawing.Point ptMaxPosition;
+			public System.Drawing.Rectangle rcNormalPosition;
+		}
+
+		internal enum ShowWindowCommands : int
+		{
+			Hide = 0,
+			Normal = 1,
+			Minimized = 2,
+			Maximized = 3,
+		}
+
+		[StructLayout(LayoutKind.Sequential)]
+		private readonly struct Rect
+		{
+			public readonly int Left;
+			public readonly int Top;
+			public readonly int Right;
+			public readonly int Bottom;
+		}
 
 		[StructLayout(LayoutKind.Sequential)]
 		public struct POINT
@@ -51,32 +98,35 @@ namespace GameOfLife
 
 		public static Window Instance;
 
-		Matrix4 _projMat;
-		DateTime _lastFps = DateTime.Now;
+		private Matrix4 _projMat;
+		private DateTime _lastFps = DateTime.Now;
 
-		Point _cursorLast;
+		private Point _cursorLast;
 
-		bool _movedCursor;
+		private bool _firstFrame = false;
+		private bool _shouldUpdate = true;
+		private readonly bool _fullscreen;
+		private bool _movedCursor;
 
-		int _blurFrames = 200;
-		int _frames = 0;
+		private readonly int _blurFrames = 200;
+		private int _frames = 0;
 
-		int _quadVAO;
-		int _textureId;
+		private readonly int _quadVAO;
+		private int _textureId;
 
-		int _cellsX;
-		int _cellsY;
+		private readonly int _cellsX;
+		private readonly int _cellsY;
 
-		Random _r = new Random();
+		private readonly Random _r = new Random();
 
-		FBO _frontBuffer;
-		FBO _backBuffer;
+		private FBO _frontBuffer;
+		private FBO _backBuffer;
 
-		GameOfLifeShader _shaderGoL;
-		ReadShader _shaderRead;
-		WriteShader _shaderWrite;
+		private readonly GameOfLifeShader _shaderGoL;
+		private readonly ReadShader _shaderRead;
+		private readonly WriteShader _shaderWrite;
 
-		static void Main()
+		private static void Main(string[] args)
 		{
 			if (File.Exists("p.id"))
 			{
@@ -112,28 +162,40 @@ namespace GameOfLife
 			}
 			catch { }
 
-			using (var w = new Window())
+			using (var w = new Window(args))
 			{
 				w.Run();
 			}
 		}
 
-		public Window()
+		public Window(string[] args)
 		{
 			Instance = this;
 
-			WindowUtil.SetAsWallpaper(WindowInfo.Handle);
-			WindowState = WindowState.Fullscreen;
+			_fullscreen = args.Any(arg => arg.ToLower().Contains("fs"));
+			_fullscreen = true;
+			if (_fullscreen)
+			{
+				WindowUtil.SetAsWallpaper(WindowInfo.Handle);
+				WindowState = WindowState.Fullscreen;
+			}
 
 			SettingsHandler.TryLoad(this);
 
 			VSync = SettingsHandler.Settings.VSync ? VSyncMode.On : VSyncMode.Off;
 			TargetRenderFrequency = SettingsHandler.Settings.FPS;
+			TargetUpdateFrequency = 10;
 
 			_blurFrames = SettingsHandler.Settings.BlurFrames;
 
-			_cellsX = SettingsHandler.Settings.CellsX;
-			_cellsY = SettingsHandler.Settings.CellsY;
+			if (!_fullscreen)
+			{
+				ClientRectangle = GetScreensRectangle();
+				//ClientSize = new Size(_cellsX, _cellsY);
+			}
+
+			_cellsX = ClientRectangle.Width / SettingsHandler.Settings.CellsSize;
+			_cellsY = ClientRectangle.Height / SettingsHandler.Settings.CellsSize;
 
 			_frontBuffer = new FBO(_cellsX, _cellsY);
 			_backBuffer = new FBO(_cellsX, _cellsY);
@@ -159,9 +221,21 @@ namespace GameOfLife
 			{
 				using (var bmp = (Bitmap)Image.FromFile(SettingsHandler.Settings.Image))
 				{
-					using (var newBmp = new Bitmap(bmp, _cellsX, _cellsY))
+					using (var canvas = new Bitmap(ClientRectangle.Size.Width, ClientSize.Height))
 					{
-						LoadTexture(newBmp);
+						using (var g = Graphics.FromImage(canvas))
+						{
+							var bbs = GetScreenRectangles();
+							foreach (var b in bbs)
+							{
+								g.DrawImage(bmp, b);
+							}
+
+							using (var newBmp = new Bitmap(canvas, _cellsX, _cellsY))
+							{
+								LoadTexture(newBmp);
+							}
+						}
 					}
 				}
 			}
@@ -170,6 +244,11 @@ namespace GameOfLife
 
 		protected override void OnRenderFrame(FrameEventArgs e)
 		{
+			if (!_shouldUpdate && _firstFrame)
+				return;
+
+			_firstFrame = true;
+
 			GL.Clear(ClearBufferMask.ColorBufferBit);
 
 			//HANDLE FPS COUNT
@@ -213,17 +292,43 @@ namespace GameOfLife
 
 			DrawResult();
 
-			var b = _backBuffer;
-			_backBuffer = _frontBuffer;
-			_frontBuffer = b;
+			(_backBuffer, _frontBuffer) = (_frontBuffer, _backBuffer);
 
 			SwapBuffers();
 		}
 
+		protected override void OnUpdateFrame(FrameEventArgs e)
+		{
+			base.OnUpdateFrame(e);
+
+			var max = false;
+
+			var ptr = GetForegroundWindow();
+			if (ptr != IntPtr.Zero && ptr != WindowInfo.Handle)
+			{
+				var rect = new Rect();
+				if (GetWindowRect(ptr, ref rect))
+				{
+					var placement = new WINDOWPLACEMENT();
+					if (GetWindowPlacement(ptr, ref placement))
+					{
+						max = (placement.showCmd & ShowWindowCommands.Maximized) == ShowWindowCommands.Maximized;
+					}
+				}
+			}
+
+			_shouldUpdate = !max;
+
+			TargetRenderFrequency = max ? 1 : SettingsHandler.Settings.FPS;
+		}
+
 		protected override void OnMouseMove(MouseMoveEventArgs e)
 		{
-			WindowUtil.SetAsWallpaper(WindowInfo.Handle);
-			WindowState = WindowState.Fullscreen;
+			if (_fullscreen)
+			{
+				WindowUtil.SetAsWallpaper(WindowInfo.Handle);
+				WindowState = WindowState.Fullscreen;
+			}
 		}
 
 		protected override void OnResize(EventArgs e)
@@ -338,11 +443,28 @@ namespace GameOfLife
 			//RENDER MOUSE
 			GetCursorPos(out POINT p);
 
-			var sizeX = Width / (float)_cellsX;
-			var sizeY = Height / (float)_cellsY;
+			//var sizeX = Width / (float)_cellsX;
+			//var sizeY = Height / (float)_cellsY;
 
-			var x = (int)(p.X / sizeX);
-			var y = (int)(p.Y / sizeY);
+			var x = p.X;
+			var y = p.Y;
+
+			if (WindowBorder != WindowBorder.Hidden)
+			{
+				x -= Location.X + 1;
+				y -= Location.Y + 31;
+			}
+			else
+			{
+				var sr = GetScreensRectangle();
+				var r = Screen.PrimaryScreen.Bounds;
+
+				x += r.Left - sr.Left;
+				y += r.Top - sr.Top;
+			}
+
+			x /= SettingsHandler.Settings.CellsSize;
+			y /= SettingsHandler.Settings.CellsSize;
 
 			if (_cursorLast.X != x || _cursorLast.Y != y)
 			{
@@ -396,6 +518,49 @@ namespace GameOfLife
 			GL.BindVertexArray(0);
 			GL.DisableVertexAttribArray(0);
 			GL.DisableVertexAttribArray(1);
+		}
+
+		private Rectangle GetScreensRectangle()
+		{
+			int minX = int.MaxValue;
+			int minY = int.MaxValue;
+			int maxX = int.MinValue;
+			int maxY = int.MinValue;
+
+			foreach (var screen in Screen.AllScreens)
+			{
+				minX = Math.Min(minX, screen.Bounds.Left);
+				minY = Math.Min(minY, screen.Bounds.Top);
+				maxX = Math.Max(maxX, screen.Bounds.Right);
+				maxY = Math.Max(maxY, screen.Bounds.Bottom);
+			}
+
+			return new Rectangle(minX, minY, maxX - minX, maxY - minX);
+		}
+
+		private Rectangle[] GetScreenRectangles()
+		{
+			int minX = int.MaxValue;
+			int minY = int.MaxValue;
+
+			var screens = Screen.AllScreens;
+			var bbs = new Rectangle[screens.Length];
+
+			for (int i = 0; i < screens.Length; i++)
+			{
+				Screen screen = screens[i];
+				minX = Math.Min(minX, screen.Bounds.Left);
+				minY = Math.Min(minY, screen.Bounds.Top);
+
+				bbs[i] = screen.Bounds;
+			}
+
+			for (int i = 0; i < screens.Length; i++)
+			{
+				bbs[i].Offset(Math.Max(0, -minX), Math.Max(0, -minY));
+			}
+
+			return bbs;
 		}
 	}
 }

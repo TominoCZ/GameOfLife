@@ -6,7 +6,7 @@ using System.IO;
 
 namespace GameOfLife
 {
-    class Shader
+	internal class Shader
     {
         private static readonly List<Shader> Shaders = new List<Shader>();
 

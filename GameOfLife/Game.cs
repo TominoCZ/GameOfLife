@@ -5,12 +5,12 @@ using System.Linq;
 
 namespace GameOfLife
 {
-	class Game
+	internal class Game
 	{
 		private Node[,] _grid;
 		private Node[,] _backBuffer;
 
-		private Node[] _neighbours =
+		private readonly Node[] _neighbours =
 		{
 			new Node(-1, -1),
 			new Node(0, -1),

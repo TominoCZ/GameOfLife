@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace GameOfLife
 {
-    class FBO_
+	internal class FBO_
     {
         private int Width;
         private int Height;

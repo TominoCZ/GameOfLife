@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace GameOfLife
 {
-    class ModelManager
+	internal class ModelManager
     {
         private static readonly List<int> VaOs = new List<int>();
         private static readonly List<int> VbOs = new List<int>();

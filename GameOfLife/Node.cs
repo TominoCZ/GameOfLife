@@ -1,6 +1,6 @@
 ﻿namespace GameOfLife
 {
-	struct Node
+	internal struct Node
 	{
 		public static Node operator +(Node n1, Node n2)
 		{

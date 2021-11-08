@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace GameOfLife
 {
-    class ReadShader : Shader
+	internal class ReadShader : Shader
     {
         public ReadShader() : base("cells_read", "gen", "image")
         {

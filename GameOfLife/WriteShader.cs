@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace GameOfLife
 {
-    class WriteShader : Shader
+	internal class WriteShader : Shader
     {
         public WriteShader() : base("cells_write")
         {
