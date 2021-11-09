@@ -11,6 +11,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -219,27 +220,56 @@ namespace GameOfLife
 
 			try
 			{
-				using (var bmp = (Bitmap)Image.FromFile(SettingsHandler.Settings.Image))
-				{
-					using (var canvas = new Bitmap(ClientRectangle.Size.Width, ClientSize.Height))
-					{
-						using (var g = Graphics.FromImage(canvas))
-						{
-							var bbs = GetScreenRectangles();
-							foreach (var b in bbs)
-							{
-								g.DrawImage(bmp, b);
-							}
+				var screens = Screen.AllScreens;
+				var rectangles = GetScreenRectangles(screens);
 
-							using (var newBmp = new Bitmap(canvas, _cellsX, _cellsY))
+				var images = SettingsHandler.Settings.Images.Select(f =>
+				{
+					try
+					{
+						return (Bitmap)Image.FromFile(f);
+					}
+					catch
+					{
+						return null;
+					}
+				}).Where(i => i != null).ToArray();
+
+				using (var canvas = new Bitmap(ClientRectangle.Size.Width, ClientSize.Height))
+				{
+					using (var g = Graphics.FromImage(canvas))
+					{
+						g.Clear(Color.FromArgb(255, 200, 0));
+
+						if (images.Length > 0)
+						{
+							for (int i = 0; i < screens.Length; i++)
 							{
-								LoadTexture(newBmp);
+								var screen = screens[i];
+
+								if (rectangles.TryGetValue(screen, out var rect))
+								{
+									if (!SettingsHandler.Settings.FillScreens && i >= images.Length)
+										break;
+
+									var image = images[Math.Min(i, images.Length - 1)];
+
+									g.DrawImage(image, rect);
+								}
 							}
+						}
+
+						using (var newBmp = new Bitmap(canvas, _cellsX, _cellsY))
+						{
+							LoadTexture(newBmp);
 						}
 					}
 				}
 			}
-			catch { }
+			catch
+			{
+				Close();
+			}
 		}
 
 		protected override void OnRenderFrame(FrameEventArgs e)
@@ -538,13 +568,13 @@ namespace GameOfLife
 			return new Rectangle(minX, minY, maxX - minX, maxY - minX);
 		}
 
-		private Rectangle[] GetScreenRectangles()
+		private Dictionary<Screen, Rectangle> GetScreenRectangles(Screen[] screens)
 		{
 			int minX = int.MaxValue;
 			int minY = int.MaxValue;
 
-			var screens = Screen.AllScreens;
 			var bbs = new Rectangle[screens.Length];
+			var dict = new Dictionary<Screen, Rectangle>();
 
 			for (int i = 0; i < screens.Length; i++)
 			{
@@ -558,9 +588,11 @@ namespace GameOfLife
 			for (int i = 0; i < screens.Length; i++)
 			{
 				bbs[i].Offset(Math.Max(0, -minX), Math.Max(0, -minY));
+
+				dict.Add(screens[i], bbs[i]);
 			}
 
-			return bbs;
+			return dict;
 		}
 	}
 }

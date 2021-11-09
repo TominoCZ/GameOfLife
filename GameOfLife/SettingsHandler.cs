@@ -20,7 +20,8 @@ namespace GameOfLife
 				//CellsY = w.Height / 10,
 				CellsSize = 4,
 				BlurFrames = 200,
-				Image = "image.png"
+				FillScreens = true,
+				Images = new[] { "image.png" }
 			};
 
 			try
@@ -57,6 +58,9 @@ namespace GameOfLife
 		[JsonProperty("VSync", DefaultValueHandling = DefaultValueHandling.Populate)]
 		public bool VSync;
 
+		[JsonProperty("FillScreens", DefaultValueHandling = DefaultValueHandling.Populate)]
+		public bool FillScreens = true;
+
 		[JsonProperty("CellsSize", DefaultValueHandling = DefaultValueHandling.Populate)]
 		public int CellsSize;
 		/*
@@ -66,8 +70,9 @@ namespace GameOfLife
 		public int CellsY;*/
 		[JsonProperty("BlurFrames", DefaultValueHandling = DefaultValueHandling.Populate)]
 		public int BlurFrames;
-		[JsonProperty("Image", DefaultValueHandling = DefaultValueHandling.Populate)]
-		public string Image;
+
+		[JsonProperty("Images", DefaultValueHandling = DefaultValueHandling.Populate)]
+		public string[] Images = { "image.png" };
 
 		public void Check(Window w)
 		{
