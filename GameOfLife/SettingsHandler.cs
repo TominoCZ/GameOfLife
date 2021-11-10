@@ -71,12 +71,12 @@ namespace GameOfLife
 		[JsonProperty("BlurFrames", DefaultValueHandling = DefaultValueHandling.Populate)]
 		public int BlurFrames;
 
-		[JsonProperty("Images", DefaultValueHandling = DefaultValueHandling.Populate)]
+		[JsonProperty("Images", DefaultValueHandling = DefaultValueHandling.Include)]
 		public string[] Images = { "image.png" };
 
 		public void Check(Window w)
 		{
-			FPS = MathHelper.Clamp(FPS, 1, 144);
+			FPS = Math.Max(1, FPS);//MathHelper.Clamp(FPS, 1, 144);
 			//CellsX = MathHelper.Clamp(CellsX, 1, w.Width / 10);
 			//CellsY = MathHelper.Clamp(CellsY, 1, w.Height / 10);
 			CellsSize = Math.Max(1, CellsSize);

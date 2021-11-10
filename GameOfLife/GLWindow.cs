@@ -392,15 +392,16 @@ namespace GameOfLife
 
             RaiseRenderFrame(elapsed, ref timestamp);
 
-            double delta = watchRender.Elapsed.TotalSeconds - timestamp;
-            var toWait = (int)Math.Max(0, TargetRenderPeriod * 1000 - elapsed * 1000 - delta * 1000 - render_last_overwait);
+            //double delta = watchRender.Elapsed.TotalSeconds - timestamp;
+            var toWait = Math.Max(0, TargetRenderPeriod * 1000 - elapsed * 1000);
 
-            var t = watchRender.Elapsed.TotalSeconds;
+            //var t = watchRender.Elapsed.TotalSeconds;
             if (toWait > 0)
-                Thread.Sleep(toWait);
-            var over = watchRender.Elapsed.TotalSeconds - t;
+                Thread.Sleep(TimeSpan.FromMilliseconds(toWait));
+            //Console.WriteLine(toWait);
+            //var over = watchRender.Elapsed.TotalSeconds - t;
 
-            render_last_overwait = over * 1000 - toWait;
+           //render_last_overwait = over * 1000 - toWait;
         }
 
         private void RaiseUpdateFrame(Stopwatch watch, double elapsed, ref double timestamp)
