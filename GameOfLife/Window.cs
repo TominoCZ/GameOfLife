@@ -29,6 +29,8 @@ namespace GameOfLife
 		private static extern bool GetCursorPos(out POINT lpPoint);
 		[DllImport("user32.dll")]
 		private static extern IntPtr GetForegroundWindow();
+		[DllImport("user32.dll", SetLastError = false)]
+		static extern IntPtr GetDesktopWindow();
 		[DllImport("user32.dll")]
 		private static extern bool GetWindowRect(IntPtr hWnd, [In, Out] ref Rect rect);
 
@@ -333,8 +335,9 @@ namespace GameOfLife
 
 			var max = false;
 
+			var desktop = GetDesktopWindow();
 			var ptr = GetForegroundWindow();
-			if (ptr != IntPtr.Zero && ptr != WindowInfo.Handle)
+			if (ptr != IntPtr.Zero && ptr != WindowInfo.Handle && ptr != desktop)
 			{
 				var rect = new Rect();
 				if (GetWindowRect(ptr, ref rect))
@@ -343,6 +346,17 @@ namespace GameOfLife
 					if (GetWindowPlacement(ptr, ref placement))
 					{
 						max = (placement.showCmd & ShowWindowCommands.Maximized) == ShowWindowCommands.Maximized;
+
+						Console.WriteLine(placement.showCmd);
+
+						if (!max)
+						{
+							if (IsFullscreen(rect))
+							{
+								max = true;
+							}
+						}
+						//Console.WriteLine($"{rect.Left}{rect.Top}{rect.Right - rect.Left}{rect.Bottom - rect.Top}");
 					}
 				}
 			}
@@ -548,6 +562,38 @@ namespace GameOfLife
 			GL.BindVertexArray(0);
 			GL.DisableVertexAttribArray(0);
 			GL.DisableVertexAttribArray(1);
+		}
+
+		private bool IsFullscreen(Rect r)
+		{
+			var windowRect = new Rectangle(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
+
+			var screens = GetScreenRectangles(Screen.AllScreens);
+			var primary = screens.SingleOrDefault(kv => kv.Key.Primary);
+			if (primary.Key != null)
+			{
+				var pScreen = primary.Key;
+				var pRect = primary.Value;
+
+				var corrected = windowRect;
+				corrected.Offset(pRect.Left, pRect.Top);
+
+				return screens.Any(s =>
+				{
+					if (s.Value.Contains(corrected))
+					{
+						if (s.Value.X == corrected.X && s.Value.Y == corrected.Y && s.Value.Width == corrected.Width &&
+						    s.Value.Height == corrected.Height)
+						{
+							return true;
+						}
+					}
+
+					return false;
+				});
+			}
+
+			return false;
 		}
 
 		private Rectangle GetScreensRectangle()
