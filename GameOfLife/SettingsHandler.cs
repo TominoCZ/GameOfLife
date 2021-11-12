@@ -18,8 +18,9 @@ namespace GameOfLife
 				FPS = 60,
 				//CellsX = w.Width / 10,
 				//CellsY = w.Height / 10,
-				CellsSize = 4,
+				CellSize = 4,
 				BlurFrames = 200,
+				BottomValue = 20,
 				FillScreens = true,
 				Images = new[] { "image.png" }
 			};
@@ -61,8 +62,8 @@ namespace GameOfLife
 		[JsonProperty("FillScreens", DefaultValueHandling = DefaultValueHandling.Populate)]
 		public bool FillScreens = true;
 
-		[JsonProperty("CellsSize", DefaultValueHandling = DefaultValueHandling.Populate)]
-		public int CellsSize;
+		[JsonProperty("CellSize", DefaultValueHandling = DefaultValueHandling.Populate)]
+		public int CellSize;
 		/*
 		[JsonProperty("CellsX", DefaultValueHandling = DefaultValueHandling.Populate)]
 		public int CellsX;
@@ -70,6 +71,9 @@ namespace GameOfLife
 		public int CellsY;*/
 		[JsonProperty("BlurFrames", DefaultValueHandling = DefaultValueHandling.Populate)]
 		public int BlurFrames;
+
+		[JsonProperty("BottomValue", DefaultValueHandling = DefaultValueHandling.Include)]
+		public int BottomValue = 20;
 
 		[JsonProperty("Images", DefaultValueHandling = DefaultValueHandling.Include)]
 		public string[] Images = { "image.png" };
@@ -79,7 +83,7 @@ namespace GameOfLife
 			FPS = Math.Max(1, FPS);//MathHelper.Clamp(FPS, 1, 144);
 			//CellsX = MathHelper.Clamp(CellsX, 1, w.Width / 10);
 			//CellsY = MathHelper.Clamp(CellsY, 1, w.Height / 10);
-			CellsSize = Math.Max(1, CellsSize);
+			CellSize = Math.Max(1, CellSize);
 			BlurFrames = MathHelper.Clamp(BlurFrames, 0, 200);
 		}
 	}

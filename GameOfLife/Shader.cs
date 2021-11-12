@@ -119,9 +119,19 @@ namespace GameOfLife
 				throw new NotImplementedException(uniform);
 
 			GL.Uniform1(loc, f);
-		}
+        }
 
-		public void SetVector2(string uniform, float x, float y)
+        public void SetInt(string uniform, int i)
+        {
+	        var loc = GetUniformLocation(uniform);
+
+	        if (loc == -1)
+		        throw new NotImplementedException(uniform);
+
+	        GL.Uniform1(loc, i);
+        }
+
+        public void SetVector2(string uniform, float x, float y)
         {
             var loc = GetUniformLocation(uniform);
 

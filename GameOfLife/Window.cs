@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
@@ -174,7 +175,7 @@ namespace GameOfLife
 			}
 		}
 
-		public Window(string[] args)
+		public Window(string[] args) : base(100, 100, new GraphicsMode(new ColorFormat(8, 8, 8, 0), 1, 0, 0))
 		{
 			Instance = this;
 
@@ -200,8 +201,8 @@ namespace GameOfLife
 				//ClientSize = new Size(_cellsX, _cellsY);
 			}
 
-			_cellsX = ClientRectangle.Width / SettingsHandler.Settings.CellsSize;
-			_cellsY = ClientRectangle.Height / SettingsHandler.Settings.CellsSize;
+			_cellsX = ClientRectangle.Width / SettingsHandler.Settings.CellSize;
+			_cellsY = ClientRectangle.Height / SettingsHandler.Settings.CellSize;
 
 			_frontBuffer = new FBO(_cellsX, _cellsY);
 			_backBuffer = new FBO(_cellsX, _cellsY);
@@ -215,12 +216,24 @@ namespace GameOfLife
 			_shaderGoL.Unbind();
 
 			_quadVAO = ModelManager.LoadModel2ToVao(new[] { 0f, 0, 0, 1, 1, 1, 1, 0 }, new[] { 0f, 0, 0, 1, 1, 1, 1, 0 });//new[] { 0f, 1, 0, 0, 1, 0, 1, 1 });
+
+			_shaderRead.Bind();
+			_shaderRead.SetFloat("bottomValue", SettingsHandler.Settings.BottomValue / 100f);
+			_shaderRead.SetMatrix4("transformationMatrix", Matrix4.CreateScale(_cellsX, _cellsY, 0));
+			_shaderRead.Unbind();
 		}
 
 		protected override void OnLoad(EventArgs e)
 		{
 			GL.Enable(EnableCap.Texture2D);
 			GL.Disable(EnableCap.Blend);
+			GL.Disable(EnableCap.AlphaTest);
+			GL.Disable(EnableCap.DepthTest);
+			GL.DepthMask(false);
+			GL.Disable(EnableCap.Blend);
+			GL.Disable(EnableCap.CullFace);
+			GL.Disable(EnableCap.LineSmooth);
+			GL.Disable(EnableCap.Lighting);
 			//GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
 			try
@@ -238,12 +251,13 @@ namespace GameOfLife
 					{
 						return null;
 					}
-				}).Where(i => i != null).ToArray();
-
+				}).ToArray();
+				
 				using (var canvas = new Bitmap(ClientRectangle.Size.Width, ClientSize.Height))
 				{
 					using (var g = Graphics.FromImage(canvas))
 					{
+						g.CompositingMode = CompositingMode.SourceCopy;
 						g.Clear(Color.FromArgb(255, 200, 0));
 
 						if (images.Length > 0)
@@ -258,8 +272,10 @@ namespace GameOfLife
 										break;
 
 									var image = images[Math.Min(i, images.Length - 1)];
-
-									g.DrawImage(image, rect);
+									if (image != null)
+									{
+										g.DrawImage(image, rect);
+									}
 								}
 							}
 						}
@@ -441,7 +457,8 @@ namespace GameOfLife
 		private void DrawResult()
 		{
 			_shaderRead.Bind();
-			_shaderRead.SetMatrix4("transformationMatrix", Matrix4.CreateScale(_cellsX, _cellsY, 0));
+			//_shaderRead.SetMatrix4("transformationMatrix", Matrix4.CreateScale(_cellsX, _cellsY, 0));
+			//_shaderGoL
 
 			_shaderRead.SetSampler2D("gen", 0);
 			GL.ActiveTexture(TextureUnit.Texture0);
@@ -520,8 +537,8 @@ namespace GameOfLife
 				y += r.Top - sr.Top;
 			}
 
-			x /= SettingsHandler.Settings.CellsSize;
-			y /= SettingsHandler.Settings.CellsSize;
+			x /= SettingsHandler.Settings.CellSize;
+			y /= SettingsHandler.Settings.CellSize;
 
 			if (_cursorLast.X != x || _cursorLast.Y != y)
 			{
